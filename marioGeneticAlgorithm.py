@@ -19,10 +19,14 @@ possible_states = [format_state(s) for s in itertools.product([0, 1], repeat = 1
 mostrar = True
 
 class MarioAI:
-    def __init__(self, sensors = 10, policy = None):
-        self.sensors, self.policy = sensors, policy
+    def __init__(self, env, sensors = 10, policy = None):
+        self.env = env
+        self.sensors = sensors
+        self.policy = policy
+
         if self.policy == None:
             self.policy = self._generate_policy()
+        
         self.fitness = self._calc_fitness()
 
     def get_policy(self):
@@ -44,24 +48,23 @@ class MarioAI:
         return policy
 
     def _calc_fitness(self):
-        env = retro.make(game='SuperMarioWorld-Snes', state='YoshiIsland1', players=1)    
-        env.reset()
+        self.env.reset()
         
         max_it = 0
         last_x_pos = 1
         fitness = 0
-        while max_it < 50 and not env.data.is_done(): 
-            state, x_pos, _ = self.get_current_state(env)
+        while max_it < 50 and not self.env.data.is_done(): 
+            state, x_pos, _ = self._get_current_state()
             action = self.evaluate(state)
             
-            performAction(moves[action], env)
+            performAction(moves[action], self.env)
             fitness = max(fitness, x_pos)
             max_it = max_it + 1 if last_x_pos == x_pos else 0
             last_x_pos = x_pos
 
             if mostrar:
-                env.render()
-                
+                self.env.render()
+
         print("calculated fitness: ", fitness)
         return fitness
 
@@ -70,8 +73,8 @@ class MarioAI:
         #print('policy', self.policy[state])
         return self.policy[state]
 
-    def get_current_state(self, env):
-        state, x_pos, y_pos = getInputs(getRam(env))
+    def _get_current_state(self):
+        state, x_pos, y_pos = getInputs(getRam(self.env))
         state = state.reshape(13, 13)
     
         transformed_states = {
@@ -104,6 +107,7 @@ class MarioAI:
 
 class GeneticAlgorithm:
     def __init__(self, generations = 100, population_size = 5):
+        self.env = retro.make(game='SuperMarioWorld-Snes', state='YoshiIsland1', players=1)    
         self.population_size = population_size
         self.generations = generations
     
@@ -112,7 +116,7 @@ class GeneticAlgorithm:
         #print(self.population)
 
     def generatePopulation(self):
-        return [MarioAI() for _ in range(self.population_size)]
+        return [MarioAI(env = self.env) for _ in range(self.population_size)]
 
     def _crossover(self, population):
         print("Crossover")
@@ -137,7 +141,7 @@ class GeneticAlgorithm:
         for ts in target_states:
             policy_a[ts], policy_b[ts] = policy_b[ts], policy_a[ts]
 
-        return MarioAI(policy = policy_a), MarioAI(policy = policy_b)
+        return MarioAI(env = self.env, policy = policy_a), MarioAI(env = self.env, policy = policy_b)
 
     def _mutation(self, population):
         print("mutation")
@@ -150,7 +154,7 @@ class GeneticAlgorithm:
         policy = individual.get_policy()
         policy[target_state] = mutated_action
 
-        return MarioAI(policy = policy)
+        return MarioAI(env = self.env, policy = policy)
     
     def _selection(self, population):
         print("selection")
