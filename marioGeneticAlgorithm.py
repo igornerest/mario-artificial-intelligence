@@ -23,6 +23,7 @@ class MarioAI:
         self.env = env
         self.sensors = sensors
         self.policy = policy
+        self.used_policy = set()
 
         if self.policy == None:
             self.policy = self._generate_policy()
@@ -31,6 +32,9 @@ class MarioAI:
 
     def get_policy(self):
         return self.policy.copy()
+
+    def get_used_policy(self):
+        return self.used_policy.copy()
 
     def get_fitness(self):
         if self.fitness == None:
@@ -49,14 +53,16 @@ class MarioAI:
 
     def _calc_fitness(self):
         self.env.reset()
-        
+        self.used_policy.clear()
+
         max_it = 0
         last_x_pos = 1
         fitness = 0
         while max_it < 50 and not self.env.data.is_done(): 
             state, x_pos, _ = self._get_current_state()
             action = self.evaluate(state)
-            
+            self.used_policy.add(state)
+
             performAction(moves[action], self.env)
             fitness = max(fitness, x_pos)
             max_it = max_it + 1 if last_x_pos == x_pos else 0
@@ -132,6 +138,7 @@ class GeneticAlgorithm:
         return crossed_p
 
     def _recombine_individuals(self, ind_a, ind_b):
+        possible_states = list(ind_a.get_used_policy()) + list(ind_b.get_used_policy())
         crossover_rate = random.randint(0, len(possible_states))
         target_states = random.sample(possible_states, crossover_rate)
 
@@ -148,7 +155,7 @@ class GeneticAlgorithm:
         return [self._mutate_individual(ind) for ind in population]
 
     def _mutate_individual(self, individual):
-        target_state = random.choice(possible_states)
+        target_state = random.choice(list(individual.get_used_policy()))
         mutated_action = random.choice(list(moves))
         
         policy = individual.get_policy()
@@ -183,8 +190,8 @@ class GeneticAlgorithm:
             mutate = self._mutation(self.population + crossed)
             selected = self._selection(mutate)
 
-            best, _ = self._select_best(self.population, 1)
             self.population = selected
+            best, _ = self._select_best(self.population, 1)
             self.best_fitness = best[0].get_fitness()
             
             print("Generation {0}. Best Fitness = {1}".format(gen, self.best_fitness))
