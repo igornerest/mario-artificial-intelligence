@@ -14,7 +14,7 @@ import copy
 def format_state(state):
     return ','.join(map(lambda x : str(int(x)), state))  
 
-moves = {'corre':130, 'pula':131, 'direita':128,'spin':386, 'esquerda':64}
+moves = {'runright':130, 'runjumpright':131, 'right':128,'runspinright':386, 'left':64}
 possible_states = [format_state(s) for s in itertools.product([0, 1], repeat = 10)]
 mostrar = True
 
@@ -55,24 +55,38 @@ class MarioAI:
         self.env.reset()
         self.used_policy.clear()
 
-        max_it = 0
-        max_x_pos = 1
         fitness = 0
-        while max_it < 100 and not self.env.data.is_done(): 
-            state, x_pos, _ = self._get_current_state()
-            action = self.evaluate(state)
-            self.used_policy.add(state)
 
-            performAction(moves[action], self.env)
-            fitness = max(fitness, x_pos)
-            max_it = max_it + 1 if x_pos <= max_x_pos else 0
-            max_x_pos = max(max_x_pos, x_pos)
+        stuck_count, timeout_count = 0, 0
+        last_xpos, last_ypos = 0, 0
+        while timeout_count < 100 and not self.env.data.is_done(): 
+            state, xpos, ypos = self._get_current_state()
+            timeout_count = timeout_count + 1 if xpos <= fitness else 0
+            stuck_count = stuck_count + 1 if xpos == last_xpos else 0
+
+            self._perfom_action(state, ypos, last_ypos, stuck_count)
+
+            fitness = max(fitness, xpos)
+            last_ypos, last_xpos = ypos, xpos
 
             if mostrar:
                 self.env.render()
 
         print("calculated fitness: ", fitness)
         return fitness
+
+    def _perfom_action(self, state, ypos, last_ypos, stuck_count):
+        self.used_policy.add(state)
+    
+        if stuck_count > 25:
+            performAction(0, self.env)
+            for _ in range(6):
+                performAction(moves['runjumpright'], self.env)
+        else:
+            action = self.evaluate(state)
+            if action == 'runjumpright' and ypos == last_ypos:
+                performAction(0, self.env)
+            performAction(moves[action], self.env)
 
     def evaluate(self, state):
         #print('state', state)
@@ -112,7 +126,7 @@ class MarioAI:
         return found_enemy
 
 class GeneticAlgorithm:
-    def __init__(self, generations = 20, population_size = 10):
+    def __init__(self, generations = 25, population_size = 10):
         self.env = retro.make(game='SuperMarioWorld-Snes', state='YoshiIsland1', players=1)    
         self.population_size = population_size
         self.generations = generations
