@@ -56,17 +56,17 @@ class MarioAI:
         self.used_policy.clear()
 
         max_it = 0
-        last_x_pos = 1
+        max_x_pos = 1
         fitness = 0
-        while max_it < 50 and not self.env.data.is_done(): 
+        while max_it < 100 and not self.env.data.is_done(): 
             state, x_pos, _ = self._get_current_state()
             action = self.evaluate(state)
             self.used_policy.add(state)
 
             performAction(moves[action], self.env)
             fitness = max(fitness, x_pos)
-            max_it = max_it + 1 if last_x_pos == x_pos else 0
-            last_x_pos = x_pos
+            max_it = max_it + 1 if x_pos <= max_x_pos else 0
+            max_x_pos = max(max_x_pos, x_pos)
 
             if mostrar:
                 self.env.render()
@@ -112,7 +112,7 @@ class MarioAI:
         return found_enemy
 
 class GeneticAlgorithm:
-    def __init__(self, generations = 100, population_size = 5):
+    def __init__(self, generations = 20, population_size = 10):
         self.env = retro.make(game='SuperMarioWorld-Snes', state='YoshiIsland1', players=1)    
         self.population_size = population_size
         self.generations = generations
@@ -166,18 +166,20 @@ class GeneticAlgorithm:
     def _selection(self, population):
         print("selection")
         selection_rate = int(0.2 * self.population_size)
-
+        tournament_rate = int(0.5 * self.population_size)
+        
         selected = []
         while len(selected) < self.population_size:
-            best_ind, population = self._select_best(population, selection_rate)
-            selected += best_ind
+            p_sample = random.sample(population, tournament_rate)
+            best_individuals = self._select_best(p_sample, selection_rate)
+            selected += best_individuals
             
         return selected
 
     def _select_best(self, population, selection_rate):
         population.sort(key = lambda ind : ind.get_fitness(), reverse = True)
         #print([p.get_fitness() for p in population])
-        return population[0:selection_rate], population[selection_rate:]
+        return population[0:selection_rate]
 
     def _remove_worst(self, population, selection_rate):
         population.sort(key = lambda ind : ind.get_fitness())
@@ -186,15 +188,15 @@ class GeneticAlgorithm:
 
     def train(self):
         for gen in range(self.generations):
-            crossed = self._crossover(self.population)
-            mutate = self._mutation(self.population + crossed)
-            selected = self._selection(mutate)
+            mutated = self._mutation(self.population)
+            crossed = self._crossover(mutated)
+            selected = self._selection(self.population + crossed)
 
             self.population = selected
-            best, _ = self._select_best(self.population, 1)
-            self.best_fitness = best[0].get_fitness()
-            
-            print("Generation {0}. Best Fitness = {1}".format(gen, self.best_fitness))
+            self.best_fitness = self._select_best(self.population, 1)[0].get_fitness()
+
+            print("Finished generation {0}. Best Fitness = {1}".format(gen, self.best_fitness))
+            print("Fitness of the current generation: ", [p.get_fitness() for p in self.population])
         #value = set(new_population[0].get_policy().items()) ^set(self.population[0].get_policy().items()) 
 
         #print(value)
