@@ -1,5 +1,3 @@
-
-
 import sys
 import os
 import pickle
@@ -26,9 +24,9 @@ class MarioAI:
         self.used_policy = set()
 
         if self.policy == None:
-            self.policy = self._generate_policy()
+            self.policy = self.__generate_policy()
         
-        self.fitness = self._calc_fitness()
+        self.fitness = self.__calc_fitness()
 
     def get_policy(self):
         return self.policy.copy()
@@ -38,11 +36,11 @@ class MarioAI:
 
     def get_fitness(self):
         if self.fitness == None:
-            self.fitness = self._calc_fitness()
+            self.fitness = self.__calc_fitness()
         
         return self.fitness
 
-    def _generate_policy(self):
+    def __generate_policy(self):
         policy = dict()
         
         for state in list(itertools.product([0, 1], repeat = self.sensors)):
@@ -51,7 +49,7 @@ class MarioAI:
 
         return policy
 
-    def _calc_fitness(self):
+    def __calc_fitness(self):
         self.env.reset()
         self.used_policy.clear()
 
@@ -60,11 +58,11 @@ class MarioAI:
         stuck_count, timeout_count = 0, 0
         last_xpos, last_ypos = 0, 0
         while timeout_count < 100 and not self.env.data.is_done(): 
-            state, xpos, ypos = self._get_current_state()
+            state, xpos, ypos = self.__get_current_state()
             timeout_count = timeout_count + 1 if xpos <= fitness else 0
             stuck_count = stuck_count + 1 if xpos == last_xpos else 0
 
-            self._perfom_action(state, ypos, last_ypos, stuck_count)
+            self.__perfom_action(state, ypos, last_ypos, stuck_count)
 
             fitness = max(fitness, xpos)
             last_ypos, last_xpos = ypos, xpos
@@ -72,10 +70,10 @@ class MarioAI:
             if mostrar:
                 self.env.render()
 
-        print("calculated fitness: ", fitness)
+        print("Fitness: ", fitness)
         return fitness
 
-    def _perfom_action(self, state, ypos, last_ypos, stuck_count):
+    def __perfom_action(self, state, ypos, last_ypos, stuck_count):
         self.used_policy.add(state)
     
         if stuck_count > 25:
@@ -83,40 +81,37 @@ class MarioAI:
             for _ in range(6):
                 performAction(moves['runjumpright'], self.env)
         else:
-            action = self.evaluate(state)
+            action = self.__evaluate(state)
             if action == 'runjumpright' and ypos == last_ypos:
                 performAction(0, self.env)
             performAction(moves[action], self.env)
 
-    def evaluate(self, state):
-        #print('state', state)
-        #print('policy', self.policy[state])
+    def __evaluate(self, state):
         return self.policy[state]
 
-    def _get_current_state(self):
+    def __get_current_state(self):
         state, x_pos, y_pos = getInputs(getRam(self.env))
         state = state.reshape(13, 13)
     
         transformed_states = {
-            'upper_left':   self.has_enemies(state, 1, 4, 0, 4),
-            'mid_left':     self.has_enemies(state, 1, 4, 5, 7),
-            'upper_left':   self.has_enemies(state, 1, 4, 0, 4),
-            'lower_left':   self.has_enemies(state, 1, 4, 8, 12),
+            'upper_left':   self.__has_enemies(state, 1, 4, 0, 4),
+            'mid_left':     self.__has_enemies(state, 1, 4, 5, 7),
+            'upper_left':   self.__has_enemies(state, 1, 4, 0, 4),
+            'lower_left':   self.__has_enemies(state, 1, 4, 8, 12),
 
-            'up':           self.has_enemies(state, 5, 7, 0, 4),
-            'down':         self.has_enemies(state, 5, 7, 8, 12),
+            'up':           self.__has_enemies(state, 5, 7, 0, 4),
+            'down':         self.__has_enemies(state, 5, 7, 8, 12),
 
-            'upper_right1': self.has_enemies(state, 8, 12, 0, 2), 
-            'upper_right2': self.has_enemies(state, 8, 12, 3, 4),
-            'near_right':   self.has_enemies(state, 8, 10, 5, 7),
-            'far_right':    self.has_enemies(state, 11, 12, 5, 7), 
-            'lower_right':  self.has_enemies(state, 8, 12, 8, 12),            
+            'upper_right1': self.__has_enemies(state, 8, 12, 0, 2), 
+            'upper_right2': self.__has_enemies(state, 8, 12, 3, 4),
+            'near_right':   self.__has_enemies(state, 8, 10, 5, 7),
+            'far_right':    self.__has_enemies(state, 11, 12, 5, 7), 
+            'lower_right':  self.__has_enemies(state, 8, 12, 8, 12),            
         }
 
-        #print(format_state(transformed_states.values()))
         return format_state(transformed_states.values()), x_pos, y_pos
 
-    def has_enemies(self, state, col_beg, col_end, row_beg, row_end):
+    def __has_enemies(self, state, col_beg, col_end, row_beg, row_end):
         found_enemy = False
         enemy = -1
         for row in range(row_beg, row_end + 1):
@@ -138,20 +133,20 @@ class GeneticAlgorithm:
     def generatePopulation(self):
         return [MarioAI(env = self.env) for _ in range(self.population_size)]
 
-    def _crossover(self, population):
-        print("Crossover")
+    def __crossover(self, population):
+        print("Starting crossover...")
         removal_rate = int(0.2 * self.population_size)
-        target_p = self._remove_worst(population, removal_rate)
+        target_p = self.__remove_worst(population, removal_rate)
 
         crossed_p = []
         while len(crossed_p) < self.population_size:
             [ind_a, ind_b] = random.sample(target_p, 2)
-            crossed_a, crossed_b = self._recombine_individuals(ind_a, ind_b)
+            crossed_a, crossed_b = self.__recombine_individuals(ind_a, ind_b)
             crossed_p += [crossed_a, crossed_b]
         
         return crossed_p
 
-    def _recombine_individuals(self, ind_a, ind_b):
+    def __recombine_individuals(self, ind_a, ind_b):
         possible_states = list(ind_a.get_used_policy()) + list(ind_b.get_used_policy())
         crossover_rate = random.randint(0, len(possible_states))
         target_states = random.sample(possible_states, crossover_rate)
@@ -164,11 +159,11 @@ class GeneticAlgorithm:
 
         return MarioAI(env = self.env, policy = policy_a), MarioAI(env = self.env, policy = policy_b)
 
-    def _mutation(self, population):
-        print("mutation")
-        return [self._mutate_individual(ind) for ind in population]
+    def __mutation(self, population):
+        print("Starting mutation...")
+        return [self.__mutate_individual(ind) for ind in population]
 
-    def _mutate_individual(self, individual):
+    def __mutate_individual(self, individual):
         target_state = random.choice(list(individual.get_used_policy()))
         mutated_action = random.choice(list(moves))
         
@@ -177,43 +172,38 @@ class GeneticAlgorithm:
 
         return MarioAI(env = self.env, policy = policy)
     
-    def _selection(self, population):
-        print("selection")
+    def __selection(self, population):
+        print("Starting selection...")
         selection_rate = int(0.2 * self.population_size)
         tournament_rate = int(0.5 * self.population_size)
         
         selected = []
         while len(selected) < self.population_size:
             p_sample = random.sample(population, tournament_rate)
-            best_individuals = self._select_best(p_sample, selection_rate)
+            best_individuals = self.__select_best(p_sample, selection_rate)
             selected += best_individuals
             
         return selected
 
-    def _select_best(self, population, selection_rate):
+    def __select_best(self, population, selection_rate):
         population.sort(key = lambda ind : ind.get_fitness(), reverse = True)
-        #print([p.get_fitness() for p in population])
         return population[0:selection_rate]
 
-    def _remove_worst(self, population, selection_rate):
+    def __remove_worst(self, population, selection_rate):
         population.sort(key = lambda ind : ind.get_fitness())
-        #print([p.get_fitness() for p in population])
         return population[selection_rate:]
 
     def train(self):
         for gen in range(self.generations):
-            mutated = self._mutation(self.population)
-            crossed = self._crossover(mutated)
-            selected = self._selection(self.population + crossed)
+            mutated = self.__mutation(self.population)
+            crossed = self.__crossover(mutated)
+            selected = self.__selection(self.population + crossed)
 
-            self.population = selected
-            self.best_fitness = self._select_best(self.population, 1)[0].get_fitness()
+            self.population = selected + self.__select_best(crossed, 1)
+            self.best_fitness = self.__select_best(self.population, 1)[0].get_fitness()
 
-            print("Finished generation {0}. Best Fitness = {1}".format(gen, self.best_fitness))
+            print("Generation {0}. Best Fitness = {1}".format(gen + 1, self.best_fitness))
             print("Fitness of the current generation: ", [p.get_fitness() for p in self.population])
-        #value = set(new_population[0].get_policy().items()) ^set(self.population[0].get_policy().items()) 
-
-        #print(value)
 
 def main():  
     global mostrar
